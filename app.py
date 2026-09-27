@@ -29,7 +29,11 @@ try:
     st.sidebar.success("✅ Model & Scaler Loaded Successfully")
 except Exception as e:
     st.sidebar.error(f"❌ Error loading files: {e}")
-st.title("🏥 sepsis Guard AI Risk Prediction")
+
+# ==========================================
+# 3. العنوان والمقدمة في الصفحة الرئيسية
+# ==========================================
+st.title("🏥 ICU Sepsis Clinical Risk Prediction")
 st.markdown("""
 This application uses an **XGBoost Machine Learning Model** to assess the risk of **Sepsis** in ICU patients 
 based on real-time vital signs and laboratory blood tests.
@@ -56,9 +60,8 @@ glucose = st.sidebar.slider("Glucose [mg/dL]", min_value=20.0, max_value=500.0, 
 creatinine = st.sidebar.slider("Creatinine [mg/dL]", min_value=0.1, max_value=20.0, value=1.0, step=0.1)
 platelets = st.sidebar.slider("Platelets [k/μL]", min_value=5.0, max_value=1000.0, value=250.0, step=5.0)
 
-st.sidebar.subheader("👤 Demographics & ICU Stay")
+st.sidebar.subheader("👤 Demographics")
 age = st.sidebar.slider("Patient Age [Years]", min_value=1, max_value=110, value=55, step=1)
-iculos = st.sidebar.slider("ICU Length of Stay (ICULOS) [Hours]", min_value=1, max_value=500, value=12, step=1)
 
 predict_btn = st.sidebar.button("🔍 Predict Sepsis Risk", type="primary", use_container_width=True)
 
@@ -83,11 +86,12 @@ with col3:
     st.write(f"**Glucose:** {glucose} mg/dL")
     st.write(f"**Creatinine:** {creatinine} mg/dL")
     st.write(f"**Platelets:** {platelets} k/μL")
-    st.write(f"**Age:** {age} | **ICULOS:** {iculos} hrs")
+    st.write(f"**Age:** {age} years")
 
 st.divider()
 
 if predict_btn:
+    # تجميع الميزات الـ 12 المطابقة للتدريب بالضبط
     input_data = pd.DataFrame([{
         'HR': hr,
         'O2Sat': o2sat,
@@ -100,8 +104,7 @@ if predict_btn:
         'Glucose': glucose,
         'Creatinine': creatinine,
         'Platelets': platelets,
-        'Age': age,
-        'ICULOS': iculos
+        'Age': age
     }])
 
     try:
