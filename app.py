@@ -79,53 +79,28 @@ with col3:
 
 st.markdown("---")
 
-# 5. معالجة التنبؤ وتمرير القيم بأسماء الأعمدة الصحيحة
+# 5. معالجة التنبؤ وتجهيز الـ 36 ميزة للـ Scaler والموديل
 if predict_btn:
     if not is_loaded:
         st.error("Model is not loaded. Please check model files on GitHub.")
     else:
-        user_inputs = {
-            'HR': hr,
-            'O2Sat': o2sat,
-            'Temp': temp,
-            'SBP': sbp,
-            'MAP': map_val,
-            'DBP': dbp,
-            'Resp': resp,
-            'Glucose': glucose,
-            'WBC': wbc,
-            'Creatinine': creatinine,
-            'Platelets': platelets,
-            'Age': age
-        }
-
         try:
-            # الحصول على قائمة أسماء الأعمدة المتوقعة من الموديل أو الـ Scaler
-            feature_names = None
-            if hasattr(model, "feature_names_in_"):
-                feature_names = list(model.feature_names_in_)
-            elif hasattr(scaler, "feature_names_in_"):
-                feature_names = list(scaler.feature_names_in_)
+            # 1. تجميع المدخلات الـ 12 الأساسية
+            user_features = [hr, o2sat, temp, sbp, map_val, dbp, resp, glucose, wbc, creatinine, platelets, age]
+            
+            # 2. إكمال المصفوفة لـ 36 ميزة دون إحداث خلل في أبعاد Scaler
+            padded_features = user_features + [0.0] * (36 - len(user_features))
+            
+            # 3. تحويلها إلى NumPy Array بالشكل الصحيح (1, 36)
+            input_array = np.array(padded_features, dtype=np.float64).reshape(1, -1)
 
-            if feature_names:
-                # إنشاء DataFrame يحتوي على كافة الأعمدة المطلوبة بالترتيب الصحيح
-                df_input = pd.DataFrame(columns=feature_names)
-                df_input.loc[0] = 0.0  # التعبئة المبدئية بأصفار
-                
-                # وضع قيم المستخدم في الأعمدة المطابقة فقط
-                for col, val in user_inputs.items():
-                    if col in df_input.columns:
-                        df_input.loc[0, col] = val
-            else:
-                # في حالة عدم وجود أسماء محددة
-                df_input = pd.DataFrame([user_inputs])
-
-            # تطبيق الـ Scaler والتنبؤ
+            # 4. تحويل البيانات باستخدام الـ Scaler المجهّز على 36 ميزة
             try:
-                input_scaled = scaler.transform(df_input)
+                input_scaled = scaler.transform(input_array)
             except Exception:
-                input_scaled = df_input
+                input_scaled = input_array
 
+            # 5. التنبؤ وحساب الاحتمالية
             prediction = model.predict(input_scaled)[0]
             
             if hasattr(model, "predict_proba"):
