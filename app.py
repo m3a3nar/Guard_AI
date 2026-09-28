@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-
-# 1. إعدادات الصفحة
 st.set_page_config(
     page_title="ICU Sepsis Clinical Risk Prediction",
     page_icon="🏥",
@@ -11,7 +9,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. تحميل الموديل والـ Scaler
 @st.cache_resource
 def load_assets():
     try:
@@ -25,7 +22,6 @@ def load_assets():
 
 model, scaler, is_loaded = load_assets()
 
-# 3. القائمة الجانبية لإدخال البيانات
 st.sidebar.title("🩺 Input Patient Parameters")
 
 if is_loaded:
@@ -78,8 +74,6 @@ with col3:
     st.write(f"**Age:** {age} years")
 
 st.markdown("---")
-
-# 5. معالجة التنبؤ باستخدام 12 ميزة مباشرة
 if predict_btn:
     if not is_loaded:
         st.error("Model is not loaded. Please check model files on GitHub.")
