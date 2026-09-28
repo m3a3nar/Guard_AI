@@ -5,7 +5,7 @@ import pickle
 
 # 1. إعدادات الصفحة
 st.set_page_config(
-    page_title="ICU Sepsis Clinical Risk Prediction",
+    page_title="Sepsis Guard_AI",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
