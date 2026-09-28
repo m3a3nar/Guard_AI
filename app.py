@@ -79,28 +79,19 @@ with col3:
 
 st.markdown("---")
 
-# 5. معالجة التنبؤ وتجهيز الـ 36 ميزة للـ Scaler والموديل
+# 5. معالجة التنبؤ باستخدام 12 ميزة مباشرة
 if predict_btn:
     if not is_loaded:
         st.error("Model is not loaded. Please check model files on GitHub.")
     else:
         try:
-            # 1. تجميع المدخلات الـ 12 الأساسية
-            user_features = [hr, o2sat, temp, sbp, map_val, dbp, resp, glucose, wbc, creatinine, platelets, age]
-            
-            # 2. إكمال المصفوفة لـ 36 ميزة دون إحداث خلل في أبعاد Scaler
-            padded_features = user_features + [0.0] * (36 - len(user_features))
-            
-            # 3. تحويلها إلى NumPy Array بالشكل الصحيح (1, 36)
-            input_array = np.array(padded_features, dtype=np.float64).reshape(1, -1)
+            # 1. إدخال القيم الـ 12 فقط كـ NumPy Array من بعد واحد وبشكل (1, 12)
+            user_features = np.array([[hr, o2sat, temp, sbp, map_val, dbp, resp, glucose, wbc, creatinine, platelets, age]], dtype=np.float64)
 
-            # 4. تحويل البيانات باستخدام الـ Scaler المجهّز على 36 ميزة
-            try:
-                input_scaled = scaler.transform(input_array)
-            except Exception:
-                input_scaled = input_array
+            # 2. التحويل باستخدام الـ Scaler
+            input_scaled = scaler.transform(user_features)
 
-            # 5. التنبؤ وحساب الاحتمالية
+            # 3. حساب التنبؤ والاحتمالية
             prediction = model.predict(input_scaled)[0]
             
             if hasattr(model, "predict_proba"):
