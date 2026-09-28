@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import pickle
 
-# 1. إعدادات الصفحة والتصميم
+# 1. إعدادات الصفحة
 st.set_page_config(
     page_title="ICU Sepsis Clinical Risk Prediction",
     page_icon="🏥",
@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. تحميل الموديل والـ Scaler مع معالجة الأخطاء
+# 2. تحميل الموديل والـ Scaler
 @st.cache_resource
 def load_assets():
     try:
@@ -25,7 +25,7 @@ def load_assets():
 
 model, scaler, is_loaded = load_assets()
 
-# 3. القائمة الجانبية (Sidebar Inputs)
+# 3. القائمة الجانبية لإدخال البيانات
 st.sidebar.title("🩺 Input Patient Parameters")
 
 if is_loaded:
@@ -50,14 +50,13 @@ age = st.sidebar.slider("Age [years]", 18, 100, 55)
 
 predict_btn = st.sidebar.button("🔍 Predict Sepsis Risk", use_container_width=True)
 
-# 4. الواجهة الرئيسية (Main Content Area)
+# 4. الواجهة الرئيسية
 st.title("🏥 ICU Sepsis Clinical Risk Prediction")
 st.write("This application uses an XGBoost Machine Learning Model to assess the risk of Sepsis in ICU patients based on real-time vital signs and laboratory blood tests.")
 
 st.markdown("---")
 st.subheader("🔍 Current Patient Selected Values")
 
-# عرض القياسات المختارة في أعمدة
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -80,7 +79,7 @@ with col3:
 
 st.markdown("---")
 
-# 5. تنفيـذ التنبؤ (Prediction Logic)
+# 5. التنبؤ وتعديل شكل البيانات التلقائي للـ 36 ميزة
 if predict_btn:
     if not is_loaded:
         st.error("Model is not loaded. Please check model files on GitHub.")
@@ -101,23 +100,32 @@ if predict_btn:
         }
 
         try:
-            # إنشاء DataFrame للميزات الـ 12
-            input_data = pd.DataFrame([raw_data])
+            # معرفة عدد الميزات التي يتوقعها الموديل أو الـ Scaler
+            expected_features = 36
+            if hasattr(model, "n_features_in_"):
+                expected_features = model.n_features_in_
+            elif hasattr(scaler, "n_features_in_"):
+                expected_features = scaler.n_features_in_
 
-            # التحقق التلقائي من تطابق أبعاد الـ Scaler لتفادي خطأ الـ 36 ميزة
+            # إعداد مصفوفة بالقيم المطلوبة للـ Model
+            input_values = [hr, o2sat, temp, sbp, map_val, dbp, resp, glucose, wbc, creatinine, platelets, age]
+            
+            # إذا كان الموديل يتوقع 36 ميزة سنكمل باقي الميزات بأصفار
+            if len(input_values) < expected_features:
+                input_values += [0.0] * (expected_features - len(input_values))
+
+            # تحويل القيم لـ Array بالـ Shape الصحيح (1, 36)
+            input_array = np.array([input_values])
+
+            # تطبيق الـ Scaler
             try:
-                if hasattr(scaler, "n_features_in_") and scaler.n_features_in_ == 12:
-                    input_scaled = scaler.transform(input_data)
-                else:
-                    # في حال كان الـ Scaler القديم متدرباً على 36 ميزة نمرر البيانات المباشرة للموديل
-                    input_scaled = input_data
+                input_scaled = scaler.transform(input_array)
             except Exception:
-                input_scaled = input_data
+                input_scaled = input_array
 
-            # تنفيذ التنبؤ باستخدام الموديل
+            # التنبؤ
             prediction = model.predict(input_scaled)[0]
             
-            # حساب نسبة الاحتمالية (Probability)
             if hasattr(model, "predict_proba"):
                 probability = model.predict_proba(input_scaled)[0][1]
             else:
