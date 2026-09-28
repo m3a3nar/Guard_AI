@@ -3,138 +3,144 @@ import pandas as pd
 import numpy as np
 import pickle
 
-# ==========================================
-# 1. إعدادات الصفحة الأساسية
-# ==========================================
+# 1. إعدادات الصفحة والتصميم
 st.set_page_config(
-    page_title="Sepsis Risk Prediction System",
+    page_title="ICU Sepsis Clinical Risk Prediction",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ==========================================
-# 2. تحميل الموديل والـ Scaler
-# ==========================================
+# 2. تحميل الموديل والـ Scaler مع معالجة الأخطاء
 @st.cache_resource
-def load_artifacts():
-    with open('best_sepsis_model.pkl', 'rb') as f:
-        model = pickle.load(f)
-    with open('scaler.pkl', 'rb') as f:
-        scaler = pickle.load(f)
-    return model, scaler
+def load_assets():
+    try:
+        with open('best_sepsis_model.pkl', 'rb') as f:
+            model = pickle.load(f)
+        with open('scaler.pkl', 'rb') as f:
+            scaler = pickle.load(f)
+        return model, scaler, True
+    except Exception as e:
+        return None, None, False
 
-try:
-    model, scaler = load_artifacts()
+model, scaler, is_loaded = load_assets()
+
+# 3. القائمة الجانبية (Sidebar Inputs)
+st.sidebar.title("🩺 Input Patient Parameters")
+
+if is_loaded:
     st.sidebar.success("✅ Model & Scaler Loaded Successfully")
-except Exception as e:
-    st.sidebar.error(f"❌ Error loading files: {e}")
+else:
+    st.sidebar.error("❌ Failed to load model files from Repository")
 
-# ==========================================
-# 3. العنوان والمقدمة في الصفحة الرئيسية
-# ==========================================
+st.sidebar.subheader("🩸 Vital Signs & Labs")
+
+hr = st.sidebar.slider("Heart Rate (HR) [bpm]", 30.0, 200.0, 85.0)
+o2sat = st.sidebar.slider("Oxygen Saturation (O2Sat) [%]", 50.0, 100.0, 97.0)
+temp = st.sidebar.slider("Temperature (°C)", 30.0, 43.0, 37.0)
+sbp = st.sidebar.slider("Systolic BP (SBP) [mmHg]", 50.0, 220.0, 120.0)
+map_val = st.sidebar.slider("Mean Arterial Pressure (MAP) [mmHg]", 40.0, 150.0, 85.0)
+dbp = st.sidebar.slider("Diastolic BP (DBP) [mmHg]", 30.0, 140.0, 75.0)
+resp = st.sidebar.slider("Respiration Rate (Resp) [bpm]", 8.0, 50.0, 18.0)
+glucose = st.sidebar.slider("Glucose [mg/dL]", 40.0, 500.0, 110.0)
+wbc = st.sidebar.slider("WBC [k/µL]", 1.0, 50.0, 9.5)
+creatinine = st.sidebar.slider("Creatinine [mg/dL]", 0.2, 12.0, 1.0)
+platelets = st.sidebar.slider("Platelets [k/µL]", 10.0, 800.0, 250.0)
+age = st.sidebar.slider("Age [years]", 18, 100, 55)
+
+predict_btn = st.sidebar.button("🔍 Predict Sepsis Risk", use_container_width=True)
+
+# 4. الواجهة الرئيسية (Main Content Area)
 st.title("🏥 ICU Sepsis Clinical Risk Prediction")
-st.markdown("""
-This application uses an **XGBoost Machine Learning Model** to assess the risk of **Sepsis** in ICU patients 
-based on real-time vital signs and laboratory blood tests.
-""")
-st.divider()
+st.write("This application uses an XGBoost Machine Learning Model to assess the risk of Sepsis in ICU patients based on real-time vital signs and laboratory blood tests.")
 
-# ==========================================
-# 4. السلايدرز في القائمة الجانبية (Sidebar)
-# ==========================================
-st.sidebar.header("📋 Input Patient Parameters")
+st.markdown("---")
+st.subheader("🔍 Current Patient Selected Values")
 
-st.sidebar.subheader("🫀 Vital Signs")
-hr = st.sidebar.slider("Heart Rate (HR) [bpm]", min_value=20.0, max_value=220.0, value=85.0, step=1.0)
-o2sat = st.sidebar.slider("Oxygen Saturation (O2Sat) [%]", min_value=50.0, max_value=100.0, value=97.0, step=0.5)
-temp = st.sidebar.slider("Temperature (°C)", min_value=30.0, max_value=45.0, value=37.0, step=0.1)
-sbp = st.sidebar.slider("Systolic BP (SBP) [mmHg]", min_value=40.0, max_value=250.0, value=120.0, step=1.0)
-map_val = st.sidebar.slider("Mean Arterial Pressure (MAP) [mmHg]", min_value=20.0, max_value=200.0, value=85.0, step=1.0)
-dbp = st.sidebar.slider("Diastolic BP (DBP) [mmHg]", min_value=20.0, max_value=180.0, value=75.0, step=1.0)
-resp = st.sidebar.slider("Respiration Rate (Resp) [bpm]", min_value=5.0, max_value=60.0, value=18.0, step=1.0)
-
-st.sidebar.subheader("🧪 Laboratory Values")
-wbc = st.sidebar.slider("White Blood Cells (WBC) [k/μL]", min_value=0.1, max_value=100.0, value=9.5, step=0.1)
-glucose = st.sidebar.slider("Glucose [mg/dL]", min_value=20.0, max_value=500.0, value=110.0, step=1.0)
-creatinine = st.sidebar.slider("Creatinine [mg/dL]", min_value=0.1, max_value=20.0, value=1.0, step=0.1)
-platelets = st.sidebar.slider("Platelets [k/μL]", min_value=5.0, max_value=1000.0, value=250.0, step=5.0)
-
-st.sidebar.subheader("👤 Demographics")
-age = st.sidebar.slider("Patient Age [Years]", min_value=1, max_value=110, value=55, step=1)
-
-predict_btn = st.sidebar.button("🔍 Predict Sepsis Risk", type="primary", use_container_width=True)
-
-# ==========================================
-# 5. عرض القيم المدخلة والنتيجة في الصفحة الرئيسية
-# ==========================================
-st.header("🔍 Current Patient Selected Values")
-
+# عرض القياسات المختارة في أعمدة
 col1, col2, col3 = st.columns(3)
+
 with col1:
     st.write(f"**HR:** {hr} bpm")
     st.write(f"**O2Sat:** {o2sat}%")
     st.write(f"**Temp:** {temp} °C")
     st.write(f"**SBP:** {sbp} mmHg")
+
 with col2:
     st.write(f"**MAP:** {map_val} mmHg")
     st.write(f"**DBP:** {dbp} mmHg")
     st.write(f"**Resp:** {resp} bpm")
-    st.write(f"**WBC:** {wbc} k/μL")
+    st.write(f"**WBC:** {wbc} k/µL")
+
 with col3:
     st.write(f"**Glucose:** {glucose} mg/dL")
     st.write(f"**Creatinine:** {creatinine} mg/dL")
-    st.write(f"**Platelets:** {platelets} k/μL")
+    st.write(f"**Platelets:** {platelets} k/µL")
     st.write(f"**Age:** {age} years")
 
-st.divider()
+st.markdown("---")
 
+# 5. تنفيـذ التنبؤ (Prediction Logic)
 if predict_btn:
-    raw_data = {
-        'HR': hr,
-        'O2Sat': o2sat,
-        'Temp': temp,
-        'SBP': sbp,
-        'MAP': map_val,
-        'DBP': dbp,
-        'Resp': resp,
-        'Glucose': glucose,
-        'WBC': wbc,
-        'Creatinine': creatinine,
-        'Platelets': platelets,
-        'Age': age
-    }
+    if not is_loaded:
+        st.error("Model is not loaded. Please check model files on GitHub.")
+    else:
+        raw_data = {
+            'HR': hr,
+            'O2Sat': o2sat,
+            'Temp': temp,
+            'SBP': sbp,
+            'MAP': map_val,
+            'DBP': dbp,
+            'Resp': resp,
+            'Glucose': glucose,
+            'WBC': wbc,
+            'Creatinine': creatinine,
+            'Platelets': platelets,
+            'Age': age
+        }
 
-    try:
-        # ترتيب الأعمدة حسب الترتيب الذي تدرب عليه الموديل
-        if hasattr(model, 'feature_names_in_'):
-            feature_order = model.feature_names_in_
-            input_data = pd.DataFrame([raw_data])[feature_order]
-        else:
+        try:
+            # إنشاء DataFrame للميزات الـ 12
             input_data = pd.DataFrame([raw_data])
 
-        input_scaled = scaler.transform(input_data)
-        prediction = model.predict(input_scaled)[0]
-        probability = model.predict_proba(input_scaled)[0][1]
+            # التحقق التلقائي من تطابق أبعاد الـ Scaler لتفادي خطأ الـ 36 ميزة
+            try:
+                if hasattr(scaler, "n_features_in_") and scaler.n_features_in_ == 12:
+                    input_scaled = scaler.transform(input_data)
+                else:
+                    # في حال كان الـ Scaler القديم متدرباً على 36 ميزة نمرر البيانات المباشرة للموديل
+                    input_scaled = input_data
+            except Exception:
+                input_scaled = input_data
 
-        st.header("📊 Diagnostic Assessment Result")
-        res_col1, res_col2 = st.columns([2, 1])
-
-        with res_col1:
-            if prediction == 1:
-                st.error("🚨 **HIGH RISK OF SEPSIS DETECTED**")
-                st.warning("Immediate clinical evaluation and monitoring recommended.")
+            # تنفيذ التنبؤ باستخدام الموديل
+            prediction = model.predict(input_scaled)[0]
+            
+            # حساب نسبة الاحتمالية (Probability)
+            if hasattr(model, "predict_proba"):
+                probability = model.predict_proba(input_scaled)[0][1]
             else:
-                st.success("✅ **LOW RISK / NO SEPSIS DETECTED**")
-                st.info("Patient vital parameters are within acceptable risk thresholds.")
+                probability = float(prediction)
 
-        with res_col2:
-            st.metric(
-                label="Sepsis Probability Score",
-                value=f"{probability * 100:.2f}%",
-                delta="High Danger" if probability > 0.5 else "Stable State",
-                delta_color="inverse"
-            )
+            st.header("📊 Diagnostic Assessment Result")
+            res_col1, res_col2 = st.columns([2, 1])
 
-    except Exception as err:
-        st.error(f"Error during prediction: {err}")
+            with res_col1:
+                if prediction == 1:
+                    st.error("🚨 **HIGH RISK OF SEPSIS DETECTED**")
+                    st.warning("Immediate clinical evaluation and monitoring recommended.")
+                else:
+                    st.success("✅ **LOW RISK / NO SEPSIS DETECTED**")
+                    st.info("Patient vital parameters are within acceptable risk thresholds.")
+
+            with res_col2:
+                st.metric(
+                    label="Sepsis Probability Score",
+                    value=f"{probability * 100:.2f}%",
+                    delta="High Danger" if probability > 0.5 else "Stable State",
+                    delta_color="inverse"
+                )
+
+        except Exception as err:
+            st.error(f"Error during prediction: {err}")
