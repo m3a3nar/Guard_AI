@@ -70,7 +70,6 @@ predict_btn = st.sidebar.button("🔍 Predict Sepsis Risk", type="primary", use_
 # ==========================================
 st.header("🔍 Current Patient Selected Values")
 
-# عرض ملخص القيم في 3 أعمدة
 col1, col2, col3 = st.columns(3)
 with col1:
     st.write(f"**HR:** {hr} bpm")
@@ -91,8 +90,7 @@ with col3:
 st.divider()
 
 if predict_btn:
-    # تجميع الميزات الـ 12 المطابقة للتدريب بالضبط
-    input_data = pd.DataFrame([{
+    raw_data = {
         'HR': hr,
         'O2Sat': o2sat,
         'Temp': temp,
@@ -100,14 +98,21 @@ if predict_btn:
         'MAP': map_val,
         'DBP': dbp,
         'Resp': resp,
-        'WBC': wbc,
         'Glucose': glucose,
+        'WBC': wbc,
         'Creatinine': creatinine,
         'Platelets': platelets,
         'Age': age
-    }])
+    }
 
     try:
+        # ترتيب الأعمدة حسب الترتيب الذي تدرب عليه الموديل
+        if hasattr(model, 'feature_names_in_'):
+            feature_order = model.feature_names_in_
+            input_data = pd.DataFrame([raw_data])[feature_order]
+        else:
+            input_data = pd.DataFrame([raw_data])
+
         input_scaled = scaler.transform(input_data)
         prediction = model.predict(input_scaled)[0]
         probability = model.predict_proba(input_scaled)[0][1]
