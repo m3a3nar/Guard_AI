@@ -5,7 +5,7 @@ import pickle
 
 # 1. إعدادات الصفحة
 st.set_page_config(
-    page_title="Sepsis Guard_AI",
+    page_title="ICU Sepsis Clinical Risk Prediction",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -79,12 +79,12 @@ with col3:
 
 st.markdown("---")
 
-# 5. التنبؤ وتعديل شكل البيانات التلقائي للـ 36 ميزة
+# 5. معالجة التنبؤ وتمرير القيم بأسماء الأعمدة الصحيحة
 if predict_btn:
     if not is_loaded:
         st.error("Model is not loaded. Please check model files on GitHub.")
     else:
-        raw_data = {
+        user_inputs = {
             'HR': hr,
             'O2Sat': o2sat,
             'Temp': temp,
@@ -100,30 +100,32 @@ if predict_btn:
         }
 
         try:
-            # معرفة عدد الميزات التي يتوقعها الموديل أو الـ Scaler
-            expected_features = 36
-            if hasattr(model, "n_features_in_"):
-                expected_features = model.n_features_in_
-            elif hasattr(scaler, "n_features_in_"):
-                expected_features = scaler.n_features_in_
+            # الحصول على قائمة أسماء الأعمدة المتوقعة من الموديل أو الـ Scaler
+            feature_names = None
+            if hasattr(model, "feature_names_in_"):
+                feature_names = list(model.feature_names_in_)
+            elif hasattr(scaler, "feature_names_in_"):
+                feature_names = list(scaler.feature_names_in_)
 
-            # إعداد مصفوفة بالقيم المطلوبة للـ Model
-            input_values = [hr, o2sat, temp, sbp, map_val, dbp, resp, glucose, wbc, creatinine, platelets, age]
-            
-            # إذا كان الموديل يتوقع 36 ميزة سنكمل باقي الميزات بأصفار
-            if len(input_values) < expected_features:
-                input_values += [0.0] * (expected_features - len(input_values))
+            if feature_names:
+                # إنشاء DataFrame يحتوي على كافة الأعمدة المطلوبة بالترتيب الصحيح
+                df_input = pd.DataFrame(columns=feature_names)
+                df_input.loc[0] = 0.0  # التعبئة المبدئية بأصفار
+                
+                # وضع قيم المستخدم في الأعمدة المطابقة فقط
+                for col, val in user_inputs.items():
+                    if col in df_input.columns:
+                        df_input.loc[0, col] = val
+            else:
+                # في حالة عدم وجود أسماء محددة
+                df_input = pd.DataFrame([user_inputs])
 
-            # تحويل القيم لـ Array بالـ Shape الصحيح (1, 36)
-            input_array = np.array([input_values])
-
-            # تطبيق الـ Scaler
+            # تطبيق الـ Scaler والتنبؤ
             try:
-                input_scaled = scaler.transform(input_array)
+                input_scaled = scaler.transform(df_input)
             except Exception:
-                input_scaled = input_array
+                input_scaled = df_input
 
-            # التنبؤ
             prediction = model.predict(input_scaled)[0]
             
             if hasattr(model, "predict_proba"):
@@ -135,7 +137,7 @@ if predict_btn:
             res_col1, res_col2 = st.columns([2, 1])
 
             with res_col1:
-                if prediction == 1:
+                if prediction == 1 or probability > 0.5:
                     st.error("🚨 **HIGH RISK OF SEPSIS DETECTED**")
                     st.warning("Immediate clinical evaluation and monitoring recommended.")
                 else:
